@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Deiby · Energía</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;600&display=swap" rel="stylesheet"/>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;}
+
+:root{
+  --bg:#020c02;
+  --g1:#00ff41;
+  --g2:#00c932;
+  --g3:#006614;
+  --text:#ccffcc;
+  --muted:#1a4a1a;
+}
+
+body{
+  background:var(--bg);
+  overflow:hidden;
+  font-family:'Rajdhani',sans-serif;
+  touch-action: none;
+}
+
+/* EFECTOS DE FONDO */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: 
+    linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center;
+  z-index: 0;
+  pointer-events: none;
+  animation: grid-move 20s linear infinite;
+}
+
+@keyframes grid-move {
+  from { background-position: 0 0; }
+  to { background-position: 60px 60px; }
+}
+
+.bg-glow {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0, 102, 20, 0.15) 0%, transparent 70%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 0, 0, 0.2) 50%
+  );
+  background-size: 100% 4px;
+  z-index: 30;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+canvas{
+  position:fixed;
+  inset:0;
+  z-index: 2;
+}
+
+/* AVATAR */
+.avatar-wrap{
+  position:fixed;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:100px;height:100px;
+  z-index:10;
+  pointer-events: none;
+}
+
+.avatar{
+  width:100px;height:100px;
+  border-radius:50%;
+  border:2px solid var(--g2);
+}
+
+.avatar-ring{
+  position:absolute;
+  inset:-12px;
+  border:1px solid var(--g1);
+  border-radius:50%;
+  animation:spin 8s linear infinite;
+}
+
+@keyframes spin{
+  to{transform:rotate(360deg)}
+}
+
+/* WAVES */
+.wave{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  border:1px solid var(--g1);
+  opacity:0;
+  animation:wave 3s ease-out infinite;
+}
+
+.wave-1{animation-delay:0s}
+.wave-2{animation-delay:1s}
+.wave-3{animation-delay:2s}
+
+@keyframes wave{
+  0%{transform:scale(1);opacity:0.6}
+  100%{transform:scale(1.8);opacity:0}
+}
+
+/* NODOS */
+.node{
+  position:fixed;
+  transform:translate(-50%,-50%);
+  z-index: 20;
+}
+
+.node-ball{
+  width:75px;height:75px;
+  border-radius:50%;
+  border:2px solid var(--g1);
+  background: rgba(2, 12, 2, 0.9);
+  box-shadow: 0 0 15px var(--g3);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.65rem;
+  color:var(--g1);
+  text-align: center;
+  padding: 8px;
+  text-transform: uppercase;
+  font-weight: 600;
+  word-break: break-word;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  
+  /* Animación de entrada */
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  animation: appear-anim 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes appear-anim {
+  from { opacity: 0; transform: scale(0) rotate(-15deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.node-ball:hover {
+  background: var(--g1);
+  color: var(--bg);
+  box-shadow: 0 0 25px var(--g1);
+  transform: scale(1.1);
+}
+
+.node.blink .node-ball {
+  animation: blink-anim 0.3s ease-out;
+}
+
+@keyframes blink-anim {
+  0% { transform: scale(1); box-shadow: 0 0 15px var(--g3); border-color: var(--g1); }
+  50% { transform: scale(1.15); box-shadow: 0 0 30px var(--g1); border-color: #fff; }
+  100% { transform: scale(1); box-shadow: 0 0 15px var(--g3); border-color: var(--g1); }
+}
+</style>
+</head>
+
+<body>
+
+<div class="bg-glow"></div>
+<div class="scanlines"></div>
+<canvas id="c"></canvas>
+
+<div class="avatar-wrap">
+  <div class="wave wave-1"></div>
+  <div class="wave wave-2"></div>
+  <div class="wave wave-3"></div>
+  <div class="avatar-ring"></div>
+  <img class="avatar" src="https://avatars.githubusercontent.com/LozanoTH">
+</div>
+
+<div id="scene"></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const sceneEl = document.getElementById('scene');
+
+let W,H,cx,cy;
+let nodes=[];
+let projects=[];
+
+// Estado de navegación
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+let isDragging = false;
+let startX, startY;
+
+function resize(){
+  W=canvas.width=innerWidth;
+  H=canvas.height=innerHeight;
+  cx=W/2;cy=H/2;
+  reposition();
+}
+
+const defaultProjects=[
+  {nombre:"env-core", url:{link:"#"}, dia:"2026-05-01"},
+  {nombre:"matrix-ui", url:{link:"#"}, dia:"2026-05-02"},
+  {nombre:"node-network", url:{link:"#"}, dia:"2026-05-03"}
+];
+
+function load(){
+  fetch('pro.json')
+    .then(r=>{if(!r.ok)throw new Error();return r.json()})
+    .then(data=>{
+      projects=data;
+      sortAndInit();
+    })
+    .catch(()=>{
+      projects=[...defaultProjects];
+      sortAndInit();
+    });
+}
+
+function sortAndInit() {
+  projects.sort((a, b) => new Date(a.dia) - new Date(b.dia));
+  initNodes();
+}
+
+function initNodes(){
+  nodes.forEach(n => n.el.remove());
+  nodes = [];
+  
+  if (projects.length > 12) {
+    zoom = Math.min(1, 8 / Math.sqrt(projects.length));
+  } else {
+    zoom = 1;
+  }
+
+  projects.forEach((p, i)=>{
+    const el=document.createElement('div');
+    el.className='node';
+
+    const link=document.createElement('a');
+    link.href = p.url.link || '#';
+    link.target = "_blank";
+    link.style.textDecoration = "none";
+    link.style.color = "inherit";
+
+    const ball=document.createElement('div');
+    ball.className='node-ball';
+    ball.textContent=p.nombre;
+    
+    const delay = i * 0.12;
+    ball.style.animationDelay = delay + 's';
+
+    link.appendChild(ball);
+    el.appendChild(link);
+    sceneEl.appendChild(el);
+    
+    const areaScale = projects.length > 80 ? 4.5 : (projects.length > 30 ? 3 : 1.5);
+    const pos = findSafePos(nodes, areaScale);
+    nodes.push({
+      label: p.nombre, 
+      el, 
+      x: pos.x, 
+      y: pos.y,
+      rx: (pos.x - cx),
+      ry: (pos.y - cy),
+      pulse: Math.random(),
+      pulseSpeed: 0.0005 + Math.random() * 0.0015,
+      startTime: Date.now() + (delay * 1000)
+    });
+  });
+  reposition();
+}
+
+function findSafePos(currentNodes, areaScale) {
+  const nodeDist = 130; 
+  const centerDist = 160;
+  let x, y, colliding;
+  let attempts = 0;
+  const maxRadius = Math.min(W, H) * areaScale;
+
+  while (attempts < 800) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = centerDist + Math.random() * (maxRadius - centerDist);
+    x = cx + Math.cos(angle) * r;
+    y = cy + Math.sin(angle) * r;
+    colliding = false;
+    for (const n of currentNodes) {
+      if (Math.hypot(x - n.x, y - n.y) < nodeDist) {
+        colliding = true;
+        break;
+      }
+    }
+    if (!colliding) break;
+    attempts++;
+  }
+  return { x, y };
+}
+
+function reposition(){
+  const av = document.querySelector('.avatar-wrap');
+  av.style.left = (cx + panX) + 'px';
+  av.style.top = (cy + panY) + 'px';
+  av.style.transform = `translate(-50%, -50%) scale(${zoom})`;
+
+  nodes.forEach((n)=>{
+    n.el.style.left = (cx + n.rx * zoom + panX) + 'px';
+    n.el.style.top = (cy + n.ry * zoom + panY) + 'px';
+    n.el.style.transform = `translate(-50%, -50%) scale(${zoom})`;
+  });
+}
+
+window.onmousedown = (e) => {
+  isDragging = true;
+  startX = e.clientX - panX;
+  startY = e.clientY - panY;
+  document.body.style.cursor = 'grabbing';
+};
+window.onmousemove = (e) => {
+  if (!isDragging) return;
+  panX = e.clientX - startX;
+  panY = e.clientY - startY;
+  reposition();
+};
+window.onmouseup = () => {
+  isDragging = false;
+  document.body.style.cursor = 'default';
+};
+
+window.onwheel = (e) => {
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = zoom * delta;
+  if (newZoom > 0.1 && newZoom < 3) {
+    zoom = newZoom;
+    reposition();
+  }
+};
+
+let initialDist = null;
+window.ontouchstart = (e) => {
+  isDragging = true;
+  if (e.touches.length === 1) {
+    startX = e.touches[0].clientX - panX;
+    startY = e.touches[0].clientY - panY;
+  } else if (e.touches.length === 2) {
+    initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+};
+window.ontouchmove = (e) => {
+  if (!isDragging) return;
+  if (e.touches.length === 1) {
+    panX = e.touches[0].clientX - startX;
+    panY = e.touches[0].clientY - startY;
+  } else if (e.touches.length === 2 && initialDist) {
+    const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const newZoom = zoom * (currentDist / initialDist);
+    if (newZoom > 0.1 && newZoom < 3) {
+      zoom = newZoom;
+      initialDist = currentDist;
+    }
+  }
+  reposition();
+  if (e.cancelable) e.preventDefault();
+};
+window.ontouchend = () => { isDragging = false; initialDist = null; };
+
+function loop(){
+  ctx.clearRect(0,0,W,H);
+  const now = Date.now();
+  const curCx = cx + panX;
+  const curCy = cy + panY;
+
+  nodes.forEach(n=>{
+    if (now < n.startTime) return;
+    const tx = cx + n.rx * zoom + panX;
+    const ty = cy + n.ry * zoom + panY;
+    // Crecimiento de línea más lento (1.5 segundos)
+    const lineProg = Math.min(1, (now - n.startTime) / 1500);
+
+    ctx.beginPath();
+    ctx.moveTo(curCx, curCy);
+    ctx.lineTo(curCx + (tx - curCx) * lineProg, curCy + (ty - curCy) * lineProg);
+    ctx.strokeStyle=`rgba(0,255,65,${0.15 * lineProg})`;
+    ctx.lineWidth = 1 * zoom;
+    ctx.stroke();
+
+    if (lineProg === 1) {
+      n.pulse += n.pulseSpeed;
+      if(n.pulse >= 1) { n.pulse = 0; triggerBlink(n.el); }
+      const px = curCx + (tx - curCx) * n.pulse;
+      const py = curCy + (ty - curCy) * n.pulse;
+      ctx.beginPath();
+      ctx.arc(px, py, 2 * zoom, 0, Math.PI*2);
+      ctx.fillStyle = "#00ff41";
+      ctx.fill();
+    }
+  });
+  requestAnimationFrame(loop);
+}
+
+function triggerBlink(el) {
+  el.classList.remove('blink');
+  void el.offsetWidth;
+  el.classList.add('blink');
+}
+
+resize();
+load();
+loop();
+window.addEventListener('resize', resize);
+</script>
+</body>
+</html>
