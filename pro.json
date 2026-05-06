@@ -1,3 +1,23 @@
 [
-  { "nombre": "Vildkapk", "url": { "link": "https://vildapk.netlify.app/" }, "dia": "2026-01-01" }
+  {
+    "nombre": "Vildkapk",
+    "url": {
+      "link": "https://vildapk.netlify.app/"
+    },
+    "dia": "2026-01-01"
+  },
+  {
+    "nombre": "adb-manager",
+    "url": {
+      "link": "https://github.com/LozanoTH/aadb-manager"
+    },
+    "dia": "2026-01-01"
+  },
+  {
+    "nombre": "app-store",
+    "url": {
+      "link": "https://github.com/LozanoTH/app-store"
+    },
+    "dia": "2026-01-01"
+  }
 ]
